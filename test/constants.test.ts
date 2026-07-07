@@ -73,6 +73,48 @@ describe("resolveConfiguredProvider", () => {
     );
   });
 
+  test("infers openai-compatible from its key and base URL", () => {
+    expect(
+      resolveConfiguredProvider({
+        OPENAI_COMPATIBLE_API_KEY: "x",
+        OPENAI_COMPATIBLE_BASE_URL: "https://gateway.example/v1",
+      }),
+    ).toBe("openai-compatible");
+  });
+
+  test("does not infer openai-compatible when the base URL is missing", () => {
+    expect(resolveConfiguredProvider({ OPENAI_COMPATIBLE_API_KEY: "x" })).toBe(
+      DEFAULT_PROVIDER,
+    );
+  });
+
+  test("prefers explicit provider over inferred provider", () => {
+    expect(
+      resolveConfiguredProvider({
+        OPENWIKI_PROVIDER: "anthropic",
+        OPENAI_COMPATIBLE_API_KEY: "x",
+        OPENAI_COMPATIBLE_BASE_URL: "https://gateway.example/v1",
+      }),
+    ).toBe("anthropic");
+  });
+
+  test("prefers openrouter fallback over openai-compatible when both keys are present", () => {
+    expect(
+      resolveConfiguredProvider({
+        OPENROUTER_API_KEY: "x",
+        OPENAI_COMPATIBLE_API_KEY: "y",
+        OPENAI_COMPATIBLE_BASE_URL: "https://gateway.example/v1",
+      }),
+    ).toBe("openrouter");
+  });
+
+  test("infers other providers from their API keys", () => {
+    expect(resolveConfiguredProvider({ OPENAI_API_KEY: "x" })).toBe("openai");
+    expect(resolveConfiguredProvider({ ANTHROPIC_API_KEY: "x" })).toBe(
+      "anthropic",
+    );
+  });
+
   test("falls back to the default provider when nothing is configured", () => {
     expect(resolveConfiguredProvider({})).toBe(DEFAULT_PROVIDER);
   });
