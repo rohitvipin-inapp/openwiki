@@ -214,13 +214,48 @@ export function isValidProvider(value: string): value is OpenWikiProvider {
   return value in PROVIDER_CONFIGS;
 }
 
+/**
+ * Resolves the active provider from the environment.
+ *
+ * Order of precedence:
+ * 1. `OPENWIKI_PROVIDER` if it is a valid provider.
+ * 2. OpenRouter when `OPENROUTER_API_KEY` is present (preserves the historical
+ *    default and avoids surprises for existing OpenRouter users).
+ * 3. Any other provider whose API key is present, requiring a base URL when the
+ *    provider needs one. This lets non-interactive runs with an OpenAI-compatible
+ *    gateway work without also setting `OPENWIKI_PROVIDER`.
+ * 4. `DEFAULT_PROVIDER` when nothing is configured.
+ */
 export function resolveConfiguredProvider(
   env: NodeJS.ProcessEnv = process.env,
 ): OpenWikiProvider {
-  return (
-    normalizeProvider(env[OPENWIKI_PROVIDER_ENV_KEY]) ??
-    (env[OPENROUTER_API_KEY_ENV_KEY] ? "openrouter" : DEFAULT_PROVIDER)
-  );
+  const explicitProvider = normalizeProvider(env[OPENWIKI_PROVIDER_ENV_KEY]);
+
+  if (explicitProvider !== null) {
+    return explicitProvider;
+  }
+
+  if (env[OPENROUTER_API_KEY_ENV_KEY]) {
+    return "openrouter";
+  }
+
+  for (const [provider, config] of Object.entries(PROVIDER_CONFIGS)) {
+    if (!env[config.apiKeyEnvKey]) {
+      continue;
+    }
+
+    if (config.requiresBaseUrl && config.baseUrlEnvKey) {
+      const baseUrl = env[config.baseUrlEnvKey]?.trim();
+
+      if (!baseUrl) {
+        continue;
+      }
+    }
+
+    return provider as OpenWikiProvider;
+  }
+
+  return DEFAULT_PROVIDER;
 }
 
 export function normalizeModelId(value: string): string {
